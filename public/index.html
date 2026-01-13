@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperSync - Real-Time Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔄 SuperSync Dashboard</h1>
+            <p class="subtitle">Real-Time Google Sheets ↔️ Database Synchronization</p>
+            <div class="status-bar">
+                <div class="status-item">
+                    <span class="status-label">Database:</span>
+                    <span id="db-status" class="status-badge offline">Connecting...</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Last Update:</span>
+                    <span id="last-update">Never</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Total Records:</span>
+                    <span id="total-records">0</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Test Data Section -->
+            <section class="card test-section">
+                <h2>🧪 Test Data Operations</h2>
+                <div class="test-forms">
+                    <div class="form-group">
+                        <h3>Add/Update Data</h3>
+                        <form id="add-data-form">
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <label>Sheet Name:</label>
+                                    <input type="text" id="sheet-name" value="Sheet1" required>
+                                </div>
+                                <div class="form-field">
+                                    <label>Row Number:</label>
+                                    <input type="number" id="row-num" value="1" min="1" required>
+                                </div>
+                            </div>
+                            <div class="form-field">
+                                <label>Row Data (comma-separated):</label>
+                                <input type="text" id="row-data" placeholder="Name, Age, City" required>
+                                <small>Example: John Doe, 25, New York</small>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Add/Update Data</button>
+                        </form>
+                    </div>
+
+                    <div class="form-group">
+                        <h3>Delete Data</h3>
+                        <form id="delete-data-form">
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <label>Sheet Name:</label>
+                                    <input type="text" id="delete-sheet-name" value="Sheet1" required>
+                                </div>
+                                <div class="form-field">
+                                    <label>Row Number:</label>
+                                    <input type="number" id="delete-row-num" value="1" min="1" required>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-danger">Delete Row</button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Data Display Section -->
+            <section class="card data-section">
+                <div class="section-header">
+                    <h2>📊 Synced Data</h2>
+                    <div class="controls">
+                        <button id="refresh-btn" class="btn btn-secondary">🔄 Refresh</button>
+                        <label class="auto-refresh">
+                            <input type="checkbox" id="auto-refresh" checked>
+                            Auto-refresh (5s)
+                        </label>
+                    </div>
+                </div>
+                <div id="data-container">
+                    <div class="loading">Loading data...</div>
+                </div>
+            </section>
+
+            <!-- Activity Log Section -->
+            <section class="card log-section">
+                <h2>📝 Activity Log</h2>
+                <div id="activity-log" class="log-container">
+                    <div class="log-entry info">Dashboard initialized. Waiting for data...</div>
+                </div>
+                <button id="clear-log-btn" class="btn btn-secondary">Clear Log</button>
+            </section>
+        </div>
+
+        <!-- Info Section -->
+        <footer class="info-section">
+            <div class="info-card">
+                <h3>🔗 Google Sheet</h3>
+                <p>Sheet ID: <code id="sheet-id-display">Loading...</code></p>
+                <a id="sheet-link" href="#" target="_blank" class="btn btn-link">Open Google Sheet</a>
+            </div>
+            <div class="info-card">
+                <h3>📡 API Endpoints</h3>
+                <ul>
+                    <li><code>GET /api/dashboard/products</code> - Get all data</li>
+                    <li><code>POST /api/sheets/data</code> - Sync from Google Sheets</li>
+                    <li><code>POST /api/sheets/deletedata</code> - Delete data</li>
+                </ul>
+            </div>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
