@@ -2,25 +2,24 @@
   "version": 2,
   "builds": [
     {
-      "src": "src/app.js",
+      "src": "api/index.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "src/app.js"
+      "dest": "api/index.js"
     },
     {
       "src": "/(.*)",
-      "dest": "public/$1"
-    },
-    {
-      "src": "/",
-      "dest": "public/index.html"
+      "dest": "api/index.js"
     }
   ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  "rewrites": [
+    {
+      "source": "/(.*\\.(html|css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))",
+      "destination": "/public/$1"
+    }
+  ]
 }
