@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: supersync
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        value: postgresql://neondb_owner:npg_Lr9vwQd0nJxU@ep-broad-cherry-ahuqztb9-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+      - key: SPREADSHEET_ID
+        value: 1DzVBnjlYbmZg8XyPXNAELjmxTNMVXhzsWb5n8OnmSPM
+      - key: NODE_ENV
+        value: production
