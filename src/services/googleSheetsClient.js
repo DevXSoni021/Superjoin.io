@@ -60,19 +60,54 @@ const updateGoogleSheet = async (sheetName, rowNum, rowData) => {
     // Check if credentials are valid
     if (!credentials || !credentials.client_email || !credentials.private_key) {
       console.warn('Google Sheets credentials not configured. Skipping update.');
+      console.warn('Credentials check:', {
+        hasCredentials: !!credentials,
+        hasEmail: !!(credentials && credentials.client_email),
+        hasKey: !!(credentials && credentials.private_key)
+      });
       return;
     }
 
-    const client = await sheetsClient();
-    const spreadsheetId = process.env.SPREADSHEET_ID; // Ensure this is set in your .env file
-
+    const spreadsheetId = process.env.SPREADSHEET_ID;
     if (!spreadsheetId) {
       console.warn('SPREADSHEET_ID not set. Skipping Google Sheets update.');
       return;
     }
 
-    // Handle empty rowData (for deletion)
-    const values = rowData && rowData.length > 0 ? [rowData] : [[]];
+    console.log('Attempting to update Google Sheet:', {
+      sheetName,
+      rowNum,
+      rowDataLength: rowData ? rowData.length : 0,
+      spreadsheetId
+    });
+
+    const client = await sheetsClient();
+    
+    // Handle empty rowData (for deletion) - clear the row
+    let values;
+    if (!rowData || rowData.length === 0) {
+      // For deletion, we need to clear the row
+      // First, get the current row to see how many columns to clear
+      try {
+        const getRange = `${sheetName}!A${rowNum}:Z${rowNum}`;
+        const getResponse = await sheets.spreadsheets.values.get({
+          auth: client,
+          spreadsheetId,
+          range: getRange
+        });
+        
+        const currentRow = getResponse.data.values && getResponse.data.values[0];
+        const numColumns = currentRow ? currentRow.length : 10; // Default to 10 columns
+        
+        // Create empty array with same number of columns
+        values = [Array(numColumns).fill('')];
+      } catch (getErr) {
+        // If we can't get the row, just clear with default columns
+        values = [Array(10).fill('')];
+      }
+    } else {
+      values = [rowData];
+    }
     
     const request = {
       auth: client,
@@ -85,14 +120,23 @@ const updateGoogleSheet = async (sheetName, rowNum, rowData) => {
     };
 
     const response = await sheets.spreadsheets.values.update(request);
-    console.log('Google Sheet updated successfully:', {
+    console.log('✅ Google Sheet updated successfully:', {
       sheet: sheetName,
       row: rowNum,
-      updatedCells: response.data.updatedCells
+      updatedCells: response.data.updatedCells,
+      updatedRange: response.data.updatedRange
     });
+    return response;
   } catch (err) {
-    console.error('Error updating Google Sheet:', err);
+    console.error('❌ Error updating Google Sheet:', err.message);
+    console.error('Error details:', {
+      code: err.code,
+      message: err.message,
+      sheetName,
+      rowNum
+    });
     // Don't throw - just log the error so the app doesn't crash
+    throw err; // Actually throw so we can see the error in logs
   }
 };
 

@@ -23,11 +23,15 @@ const addTestData = async (req, res) => {
 
     // Also update Google Sheets directly (since notification listener doesn't work in serverless)
     try {
-      await updateGoogleSheet(sheetName, row, rowData);
-      console.log('Google Sheet updated successfully');
+      console.log('Updating Google Sheet after database insert...');
+      const result = await updateGoogleSheet(sheetName, row, rowData);
+      if (result) {
+        console.log('✅ Google Sheet updated successfully after database insert');
+      }
     } catch (sheetsError) {
-      console.error('Error updating Google Sheets (non-fatal):', sheetsError);
-      // Don't fail the request if Google Sheets update fails
+      console.error('❌ Error updating Google Sheets (non-fatal):', sheetsError.message);
+      console.error('Full error:', sheetsError);
+      // Don't fail the request if Google Sheets update fails, but log it
     }
 
     res.status(200).json({ 
