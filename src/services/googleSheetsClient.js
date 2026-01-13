@@ -57,86 +57,88 @@ const sheetsClient = async () => {
 // Function to update a row in Google Sheets
 const updateGoogleSheet = async (sheetName, rowNum, rowData) => {
   try {
+    console.log('🔄 updateGoogleSheet called with:', {
+      sheetName,
+      rowNum,
+      rowData: rowData ? rowData.slice(0, 3) : 'empty',
+      rowDataLength: rowData ? rowData.length : 0
+    });
+
     // Check if credentials are valid
     if (!credentials || !credentials.client_email || !credentials.private_key) {
-      console.warn('Google Sheets credentials not configured. Skipping update.');
-      console.warn('Credentials check:', {
+      const errorMsg = 'Google Sheets credentials not configured. Skipping update.';
+      console.error('❌', errorMsg);
+      console.error('Credentials check:', {
         hasCredentials: !!credentials,
         hasEmail: !!(credentials && credentials.client_email),
-        hasKey: !!(credentials && credentials.private_key)
+        hasKey: !!(credentials && credentials.private_key),
+        envVarExists: !!process.env.GOOGLE_SHEETS_CREDENTIALS
       });
-      return;
+      throw new Error(errorMsg);
     }
 
     const spreadsheetId = process.env.SPREADSHEET_ID;
     if (!spreadsheetId) {
-      console.warn('SPREADSHEET_ID not set. Skipping Google Sheets update.');
-      return;
+      const errorMsg = 'SPREADSHEET_ID not set. Skipping Google Sheets update.';
+      console.error('❌', errorMsg);
+      throw new Error(errorMsg);
     }
 
-    console.log('Attempting to update Google Sheet:', {
-      sheetName,
-      rowNum,
-      rowDataLength: rowData ? rowData.length : 0,
-      spreadsheetId
-    });
+    console.log('✅ Credentials and spreadsheet ID validated');
 
     const client = await sheetsClient();
+    console.log('✅ Google Sheets client authenticated');
     
-    // Handle empty rowData (for deletion) - clear the row
+    // Ensure rowData is an array and process it
     let values;
     if (!rowData || rowData.length === 0) {
-      // For deletion, we need to clear the row
-      // First, get the current row to see how many columns to clear
-      try {
-        const getRange = `${sheetName}!A${rowNum}:Z${rowNum}`;
-        const getResponse = await sheets.spreadsheets.values.get({
-          auth: client,
-          spreadsheetId,
-          range: getRange
-        });
-        
-        const currentRow = getResponse.data.values && getResponse.data.values[0];
-        const numColumns = currentRow ? currentRow.length : 10; // Default to 10 columns
-        
-        // Create empty array with same number of columns
-        values = [Array(numColumns).fill('')];
-      } catch (getErr) {
-        // If we can't get the row, just clear with default columns
-        values = [Array(10).fill('')];
-      }
+      console.log('Clearing row (deletion)');
+      values = [Array(10).fill('')];
     } else {
-      values = [rowData];
+      // Ensure it's an array and convert all values to strings
+      const processedData = Array.isArray(rowData) 
+        ? rowData.map(val => val !== null && val !== undefined ? String(val) : '')
+        : [String(rowData)];
+      values = [processedData];
+      console.log('📝 Data to write:', processedData);
     }
     
+    const range = `${sheetName}!A${rowNum}:Z${rowNum}`;
+    console.log('📋 Updating range:', range);
+
     const request = {
       auth: client,
       spreadsheetId,
-      range: `${sheetName}!A${rowNum}:Z${rowNum}`, // The row to update (rowNum is 1-indexed)
+      range: range,
       valueInputOption: 'USER_ENTERED',
       resource: {
         values: values,
       },
     };
 
+    console.log('🚀 Sending request to Google Sheets API...');
     const response = await sheets.spreadsheets.values.update(request);
-    console.log('✅ Google Sheet updated successfully:', {
+    
+    console.log('✅ Google Sheet updated successfully!', {
       sheet: sheetName,
       row: rowNum,
       updatedCells: response.data.updatedCells,
-      updatedRange: response.data.updatedRange
+      updatedRange: response.data.updatedRange,
+      updatedRows: response.data.updatedRows
     });
+    
     return response;
   } catch (err) {
     console.error('❌ Error updating Google Sheet:', err.message);
-    console.error('Error details:', {
+    console.error('Full error:', {
       code: err.code,
       message: err.message,
+      stack: err.stack?.split('\n').slice(0, 3).join('\n'),
       sheetName,
-      rowNum
+      rowNum,
+      rowData: rowData ? rowData.slice(0, 3) : 'empty'
     });
-    // Don't throw - just log the error so the app doesn't crash
-    throw err; // Actually throw so we can see the error in logs
+    throw err;
   }
 };
 
