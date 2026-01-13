@@ -9,8 +9,15 @@ let credentialsLoaded = false;
 
 // Function to load credentials (can be called multiple times)
 const loadCredentials = () => {
-  if (credentialsLoaded && credentials) {
+  // If we already have valid credentials, return them
+  if (credentials && credentials.client_email && credentials.private_key) {
     return credentials;
+  }
+
+  // Reset if we had a failed load attempt
+  if (credentialsLoaded && !credentials) {
+    console.log('🔄 Retrying to load credentials...');
+    credentialsLoaded = false;
   }
 
   console.log('🔄 Loading Google Sheets credentials...');
@@ -80,13 +87,12 @@ const getAuthClient = () => {
     throw new Error('Cannot create auth client: credentials not available');
   }
   
-  // Create new auth if credentials changed or don't exist
-  if (!auth || !sheetsClientInstance) {
-    auth = new google.auth.GoogleAuth({
-      credentials: currentCredentials,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
-  }
+  // Always create fresh auth with current credentials (safer for serverless)
+  auth = new google.auth.GoogleAuth({
+    credentials: currentCredentials,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
+  
   return auth;
 };
 
