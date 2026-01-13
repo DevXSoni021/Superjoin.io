@@ -71,18 +71,25 @@ const updateGoogleSheet = async (sheetName, rowNum, rowData) => {
       return;
     }
 
+    // Handle empty rowData (for deletion)
+    const values = rowData && rowData.length > 0 ? [rowData] : [[]];
+    
     const request = {
       auth: client,
       spreadsheetId,
-      range: `${sheetName}!A${rowNum + 1}:Z${rowNum + 1}`, // The row to update
+      range: `${sheetName}!A${rowNum}:Z${rowNum}`, // The row to update (rowNum is 1-indexed)
       valueInputOption: 'USER_ENTERED',
       resource: {
-        values: [rowData],
+        values: values,
       },
     };
 
     const response = await sheets.spreadsheets.values.update(request);
-    console.log('Google Sheet updated:', response.data);
+    console.log('Google Sheet updated successfully:', {
+      sheet: sheetName,
+      row: rowNum,
+      updatedCells: response.data.updatedCells
+    });
   } catch (err) {
     console.error('Error updating Google Sheet:', err);
     // Don't throw - just log the error so the app doesn't crash

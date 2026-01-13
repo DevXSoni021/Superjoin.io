@@ -1,4 +1,5 @@
 const { insertOrUpdateRow, deleteRowFromDB } = require('../models/sheetDataModel');
+const { updateGoogleSheet } = require('../services/googleSheetsClient');
 
 // Add/Update data for testing
 const addTestData = async (req, res) => {
@@ -13,11 +14,21 @@ const addTestData = async (req, res) => {
       return res.status(400).json({ error: 'rowData must be an array' });
     }
 
+    // Insert/update in database
     await insertOrUpdateRow({
       sheetName,
       row,
       rowData
     });
+
+    // Also update Google Sheets directly (since notification listener doesn't work in serverless)
+    try {
+      await updateGoogleSheet(sheetName, row, rowData);
+      console.log('Google Sheet updated successfully');
+    } catch (sheetsError) {
+      console.error('Error updating Google Sheets (non-fatal):', sheetsError);
+      // Don't fail the request if Google Sheets update fails
+    }
 
     res.status(200).json({ 
       message: 'Data added/updated successfully',
@@ -38,7 +49,17 @@ const deleteTestData = async (req, res) => {
       return res.status(400).json({ error: 'sheetName and row are required' });
     }
 
+    // Delete from database
     await deleteRowFromDB({ sheetName, row });
+
+    // Also clear the row in Google Sheets
+    try {
+      await updateGoogleSheet(sheetName, row, []); // Empty array clears the row
+      console.log('Google Sheet row cleared successfully');
+    } catch (sheetsError) {
+      console.error('Error clearing Google Sheets row (non-fatal):', sheetsError);
+      // Don't fail the request if Google Sheets update fails
+    }
 
     res.status(200).json({ 
       message: 'Data deleted successfully',
