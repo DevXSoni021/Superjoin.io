@@ -27,8 +27,7 @@ function onEditt(e) {
   Logger.log("Payload: " + JSON.stringify(payload));
 
   // Determine the correct endpoint URL
-  // TODO: Replace with your live URL after deployment (e.g., https://your-app.onrender.com)
-  const baseUrl = 'https://your-app.onrender.com'; // Update this with your actual deployment URL
+  const baseUrl = 'https://superjoin-kv983q88n-devas-projects-2ba5a1aa.vercel.app';
   const url = isDeleted
     ? `${baseUrl}/api/sheets/deletedata`
     : `${baseUrl}/api/sheets/data`;
