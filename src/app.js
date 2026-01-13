@@ -32,24 +32,40 @@ app.get('/', (req, res) => {
 // Error handling middleware
 app.use(errorHandler);
 
+// Initialize database table (lazy initialization for Vercel)
+let tableInitialized = false;
+const initializeTable = async () => {
+  if (!tableInitialized) {
+    try {
+      await createSheetTable();
+      tableInitialized = true;
+    } catch (error) {
+      console.error('Error initializing table:', error);
+    }
+  }
+};
+
+// Middleware to ensure table is initialized
+app.use(async (req, res, next) => {
+  if (!tableInitialized) {
+    await initializeTable();
+  }
+  next();
+});
+
 // Start the app (only if not in Vercel serverless environment)
-if (process.env.VERCEL !== '1') {
+if (process.env.VERCEL !== '1' && !process.env.VERCEL) {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);
     await createSheetTable(); // Ensure the table exists
-    listenForNotifications(); // Start listening to notifications
+    listenForNotifications(); // Start listening to notifications (only works in non-serverless)
   });
 } else {
-  // For Vercel, initialize on first request
-  (async () => {
-    try {
-      await createSheetTable();
-      listenForNotifications();
-    } catch (error) {
-      console.error('Error initializing:', error);
-    }
-  })();
+  // For Vercel/serverless: Don't start listening to notifications
+  // Persistent connections don't work in serverless environments
+  // Database triggers will still work, but we can't listen in real-time
+  console.log('Running in serverless mode - notification listener disabled');
 }
 
 // Export for Vercel
