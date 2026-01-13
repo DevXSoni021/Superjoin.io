@@ -4,54 +4,95 @@ const fs = require('fs');
 require('dotenv').config();
 
 // Load Google Sheets credentials from file or environment variable
-let credentials;
+let credentials = null;
+let credentialsLoaded = false;
 
-// Try to load from file first (for local development)
-const credentialsPath = path.join(__dirname, '../config/googleSheetsCredentials.json');
-if (fs.existsSync(credentialsPath)) {
-  try {
-    credentials = require(credentialsPath);
-  } catch (error) {
-    console.warn('Could not load credentials from file:', error.message);
+// Function to load credentials (can be called multiple times)
+const loadCredentials = () => {
+  if (credentialsLoaded && credentials) {
+    return credentials;
   }
-}
 
-// If file doesn't exist, try to load from environment variable (for Vercel/serverless)
-if (!credentials && process.env.GOOGLE_SHEETS_CREDENTIALS) {
-  try {
-    credentials = JSON.parse(process.env.GOOGLE_SHEETS_CREDENTIALS);
-  } catch (error) {
-    console.error('Error parsing GOOGLE_SHEETS_CREDENTIALS from environment:', error.message);
+  console.log('🔄 Loading Google Sheets credentials...');
+  
+  // Try to load from file first (for local development)
+  const credentialsPath = path.join(__dirname, '../config/googleSheetsCredentials.json');
+  if (fs.existsSync(credentialsPath)) {
+    try {
+      credentials = require(credentialsPath);
+      console.log('✅ Credentials loaded from file');
+      credentialsLoaded = true;
+      return credentials;
+    } catch (error) {
+      console.warn('⚠️ Could not load credentials from file:', error.message);
+    }
   }
-}
 
-// If still no credentials, create a minimal one (will fail on actual API calls but won't crash)
-if (!credentials) {
-  console.warn('Google Sheets credentials not found. Some features may not work.');
-  credentials = {
-    type: 'service_account',
-    project_id: '',
-    private_key_id: '',
-    private_key: '',
-    client_email: '',
-    client_id: '',
-    auth_uri: 'https://accounts.google.com/o/oauth2/auth',
-    token_uri: 'https://oauth2.googleapis.com/token',
-    auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
-    client_x509_cert_url: '',
-    universe_domain: 'googleapis.com'
-  };
-}
+  // If file doesn't exist, try to load from environment variable (for Vercel/serverless)
+  if (process.env.GOOGLE_SHEETS_CREDENTIALS) {
+    try {
+      const envCreds = process.env.GOOGLE_SHEETS_CREDENTIALS;
+      console.log('📦 Found GOOGLE_SHEETS_CREDENTIALS in environment, parsing...');
+      credentials = JSON.parse(envCreds);
+      
+      // Validate credentials
+      if (credentials && credentials.client_email && credentials.private_key) {
+        console.log('✅ Credentials loaded from environment variable');
+        console.log('📧 Service account:', credentials.client_email);
+        credentialsLoaded = true;
+        return credentials;
+      } else {
+        console.error('❌ Credentials from environment are incomplete');
+        credentials = null;
+      }
+    } catch (error) {
+      console.error('❌ Error parsing GOOGLE_SHEETS_CREDENTIALS:', error.message);
+      credentials = null;
+    }
+  } else {
+    console.warn('⚠️ GOOGLE_SHEETS_CREDENTIALS environment variable not found');
+  }
+
+  // If still no credentials, return null (don't create fake ones)
+  if (!credentials) {
+    console.error('❌ Google Sheets credentials not found. Google Sheets sync will not work.');
+    console.error('💡 Make sure GOOGLE_SHEETS_CREDENTIALS is set in Vercel environment variables');
+    credentialsLoaded = true; // Mark as loaded so we don't keep trying
+    return null;
+  }
+
+  credentialsLoaded = true;
+  return credentials;
+};
+
+// Load credentials on module load
+credentials = loadCredentials();
 
 const sheets = google.sheets('v4');
 
-const auth = new google.auth.GoogleAuth({
-  credentials,
-  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-});
+// Create auth client (will be recreated with valid credentials when needed)
+let auth = null;
+let sheetsClientInstance = null;
+
+const getAuthClient = () => {
+  const currentCredentials = loadCredentials();
+  if (!currentCredentials) {
+    throw new Error('Cannot create auth client: credentials not available');
+  }
+  
+  // Create new auth if credentials changed or don't exist
+  if (!auth || !sheetsClientInstance) {
+    auth = new google.auth.GoogleAuth({
+      credentials: currentCredentials,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+  }
+  return auth;
+};
 
 const sheetsClient = async () => {
-  return await auth.getClient();
+  const authClient = getAuthClient();
+  return await authClient.getClient();
 };
 
 // Function to update a row in Google Sheets
@@ -64,15 +105,19 @@ const updateGoogleSheet = async (sheetName, rowNum, rowData) => {
       rowDataLength: rowData ? rowData.length : 0
     });
 
+    // Reload credentials (in case they were set after module load in serverless)
+    const currentCredentials = loadCredentials();
+
     // Check if credentials are valid
-    if (!credentials || !credentials.client_email || !credentials.private_key) {
-      const errorMsg = 'Google Sheets credentials not configured. Skipping update.';
+    if (!currentCredentials || !currentCredentials.client_email || !currentCredentials.private_key) {
+      const errorMsg = 'Google Sheets credentials not configured. Cannot update Google Sheets.';
       console.error('❌', errorMsg);
       console.error('Credentials check:', {
-        hasCredentials: !!credentials,
-        hasEmail: !!(credentials && credentials.client_email),
-        hasKey: !!(credentials && credentials.private_key),
-        envVarExists: !!process.env.GOOGLE_SHEETS_CREDENTIALS
+        hasCredentials: !!currentCredentials,
+        hasEmail: !!(currentCredentials && currentCredentials.client_email),
+        hasKey: !!(currentCredentials && currentCredentials.private_key),
+        envVarExists: !!process.env.GOOGLE_SHEETS_CREDENTIALS,
+        envVarLength: process.env.GOOGLE_SHEETS_CREDENTIALS ? process.env.GOOGLE_SHEETS_CREDENTIALS.length : 0
       });
       throw new Error(errorMsg);
     }
